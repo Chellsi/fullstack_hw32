@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Movie Search - LiveSearch</title>
+    <link rel="stylesheet" href="styles.css">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    animation: {
+                        'fade-in': 'fadeIn 0.5s ease-in-out',
+                        'slide-up': 'slideUp 0.3s ease-out',
+                        'pulse-slow': 'pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+                    },
+                    keyframes: {
+                        fadeIn: {
+                            '0%': { opacity: '0', transform: 'translateY(10px)' },
+                            '100%': { opacity: '1', transform: 'translateY(0)' },
+                        },
+                        slideUp: {
+                            '0%': { opacity: '0', transform: 'translateY(20px)' },
+                            '100%': { opacity: '1', transform: 'translateY(0)' },
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="min-h-screen bg-gradient-to-br from-indigo-600 via-purple-600 to-pink-500">
+    <!-- Background Pattern -->
+    <div class="absolute inset-0 bg-[url('data:image/svg+xml,%3Csvg width="60" height="60" viewBox="0 0 60 60" xmlns="http://www.w3.org/2000/svg"%3E%3Cg fill="none" fill-rule="evenodd"%3E%3Cg fill="%23ffffff" fill-opacity="0.05"%3E%3Ccircle cx="30" cy="30" r="2"/%3E%3C/g%3E%3C/g%3E%3C/svg%3E')] opacity-30"></div>
+    
+    <div class="relative z-10 container mx-auto px-4 py-8 max-w-7xl">
+        <!-- Header -->
+        <header class="text-center mb-12 animate-fade-in">
+            <h1 class="text-5xl md:text-6xl font-bold text-white mb-4 tracking-tight">
+                <span class="inline-block animate-bounce">🎬</span>
+                <span class="bg-gradient-to-r from-white to-purple-200 bg-clip-text text-transparent">
+                    Movie Search
+                </span>
+            </h1>
+            <p class="text-xl text-purple-100 font-light">Знайди свій улюблений фільм або серіал</p>
+        </header>
+
+        <!-- Search Container -->
+        <div class="glass-effect rounded-3xl p-8 mb-8 shadow-2xl animate-slide-up">
+            <!-- Search Box -->
+            <div class="relative mb-8">
+                <div class="absolute inset-y-0 left-0 pl-6 flex items-center pointer-events-none">
+                    <svg class="h-6 w-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+                    </svg>
+                </div>
+                <input 
+                    type="text" 
+                    id="searchInput"
+                    class="w-full pl-14 pr-32 py-4 text-lg border-2 border-white/20 rounded-2xl bg-white/90 backdrop-blur-sm placeholder-gray-500 focus:outline-none focus:ring-4 focus:ring-purple-300/50 focus:border-purple-400 transition-all duration-300 shadow-lg"
+                    placeholder="Введіть назву фільму або серіалу..."
+                >
+                <div class="absolute inset-y-0 right-0 pr-6 flex items-center space-x-2">
+                    <div id="searchStatus" class="text-sm text-gray-500"></div>
+                    <button 
+                        id="searchTypeBtn"
+                        class="px-3 py-1 text-xs bg-purple-100 text-purple-600 rounded-full hover:bg-purple-200 transition-colors duration-200 font-medium"
+                        title="Клікни для зміни типу пошуку"
+                    >
+                        Все
+                    </button>
+                </div>
+            </div>
+            
+            <!-- Results Container -->
+            <div id="resultsContainer" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6"></div>
+        </div>
+    </div>
+    <script src="script.js"></script>
+</body>
+</html>
