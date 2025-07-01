@@ -11,6 +11,11 @@ class MovieSearchApp {
         this.searchTypes = ['all', 'movie', 'series'];
         this.currentTypeIndex = 0;
         
+        // Перевірка наявності DOM-елементів
+        if (!this.searchInput || !this.resultsContainer || !this.searchStatus || !this.searchTypeBtn) {
+            throw new Error('Один або декілька елементів DOM не знайдено. Перевірте HTML.');
+        }
+        
         this.init();
     }
 
@@ -55,6 +60,13 @@ class MovieSearchApp {
         if (!query) {
             this.showMessage('Почніть вводити назву фільму для пошуку...', 'text-gray-600');
             this.updateSearchStatus('');
+            return;
+        }
+
+        // Якщо запит містить не-латинські символи
+        if (!/^[a-zA-Z0-9\s]+$/.test(query)) {
+            this.showMessage('OMDb API підтримує лише англійські назви. Спробуйте ввести назву латиницею.', 'text-amber-600');
+            this.updateSearchStatus('Використовуйте латиницю');
             return;
         }
 
@@ -279,11 +291,24 @@ class MovieSearchApp {
         // Створюємо модальне вікно з Tailwind стилями
         const modal = document.createElement('div');
         modal.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4';
+        modal.setAttribute('role', 'dialog');
+        modal.setAttribute('aria-modal', 'true');
         modal.onclick = (e) => {
             if (e.target === modal) {
                 document.body.removeChild(modal);
+                document.removeEventListener('keydown', escListener);
             }
         };
+
+        const escListener = (e) => {
+            if (e.key === 'Escape') {
+                if (document.body.contains(modal)) {
+                    document.body.removeChild(modal);
+                }
+                document.removeEventListener('keydown', escListener);
+            }
+        };
+        document.addEventListener('keydown', escListener);
 
         const modalContent = document.createElement('div');
         modalContent.className = 'bg-white rounded-3xl p-8 max-w-md w-full shadow-2xl transform animate-slide-up';
@@ -317,6 +342,10 @@ class MovieSearchApp {
     }
 
     showError(message) {
+        let errorMsg = message;
+        if (message instanceof TypeError) {
+            errorMsg = 'Помилка мережі або сервер недоступний. Спробуйте пізніше.';
+        }
         this.resultsContainer.innerHTML = `
             <div class="col-span-full text-center py-16">
                 <div class="bg-red-50 border border-red-200 rounded-3xl p-8 max-w-md mx-auto">
@@ -324,7 +353,7 @@ class MovieSearchApp {
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
                     </svg>
                     <h3 class="text-lg font-semibold text-red-800 mb-2">Помилка</h3>
-                    <p class="text-red-600">${message}</p>
+                    <p class="text-red-600">${errorMsg}</p>
                 </div>
             </div>
         `;
