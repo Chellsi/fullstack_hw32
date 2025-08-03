@@ -47,6 +47,24 @@
                     Все
                 </button>
             </div>
+            
+            <!-- Year Filter -->
+            <div class="flex items-center gap-3 mb-4">
+                <label for="yearFilter" class="text-white font-medium text-sm">Рік:</label>
+                <select 
+                    id="yearFilter"
+                    class="px-3 py-2 bg-white/90 text-gray-700 rounded-xl border-2 border-white/20 focus:outline-none focus:ring-2 focus:ring-purple-300/50 focus:border-purple-400 transition-all duration-200 text-sm"
+                >
+                    <option value="">Будь-який рік</option>
+                </select>
+                <button 
+                    id="clearYearBtn"
+                    class="px-3 py-2 text-sm bg-red-500/90 text-white rounded-xl hover:bg-red-600 transition-all duration-200 font-medium border-2 border-red-400 hover:border-red-500 shadow-sm"
+                    title="Очистити рік"
+                >
+                    ✕
+                </button>
+            </div>
             <div id="searchStatus" class="block mt-2 text-sm text-gray-500 min-h-[1.5em]"></div>
             
             <!-- Results Container -->

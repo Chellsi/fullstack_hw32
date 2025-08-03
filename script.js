@@ -6,10 +6,15 @@ class MovieSearchApp {
         this.resultsContainer = document.getElementById('resultsContainer');
         this.searchStatus = document.getElementById('searchStatus');
         this.searchTypeBtn = document.getElementById('searchTypeBtn');
+        this.yearFilter = document.getElementById('yearFilter');
+        this.clearYearBtn = document.getElementById('clearYearBtn');
         this.searchTimeout = null;
         this.currentQuery = '';
         this.searchTypes = ['all', 'movie', 'series'];
         this.currentTypeIndex = 0;
+        this.currentPage = 1;
+        this.totalResults = 0;
+        this.hasMoreResults = false;
         
         // Перевірка наявності DOM-елементів
         if (!this.searchInput || !this.resultsContainer || !this.searchStatus || !this.searchTypeBtn) {
@@ -30,6 +35,26 @@ class MovieSearchApp {
             this.cycleSearchType();
         });
 
+        // Додаємо слухач для фільтра року
+        this.yearFilter.addEventListener('change', () => {
+            if (this.currentQuery.length >= 3) {
+                this.currentPage = 1;
+                this.searchMovies(this.currentQuery, false);
+            }
+        });
+
+        // Додаємо слухач для кнопки очищення року
+        this.clearYearBtn.addEventListener('click', () => {
+            this.yearFilter.value = '';
+            if (this.currentQuery.length >= 3) {
+                this.currentPage = 1;
+                this.searchMovies(this.currentQuery, false);
+            }
+        });
+
+        // Ініціалізуємо список років
+        this.initializeYearFilter();
+
         // Показуємо початкове повідомлення
         this.showMessage('Почніть вводити назву фільму для пошуку...', 'text-gray-600');
     }
@@ -45,7 +70,21 @@ class MovieSearchApp {
         
         // Перезапускаємо пошук з новим типом
         if (this.currentQuery.length >= 3) {
-            this.searchMovies(this.currentQuery);
+            this.currentPage = 1;
+            this.searchMovies(this.currentQuery, false);
+        }
+    }
+
+    initializeYearFilter() {
+        const currentYear = new Date().getFullYear();
+        const startYear = 1900;
+        
+        // Додаємо роки від 1900 до поточного року
+        for (let year = currentYear; year >= startYear; year--) {
+            const option = document.createElement('option');
+            option.value = year;
+            option.textContent = year;
+            this.yearFilter.appendChild(option);
         }
     }
 
@@ -65,14 +104,14 @@ class MovieSearchApp {
 
         // Якщо запит містить не-латинські символи
         if (!/^[a-zA-Z0-9\s]+$/.test(query)) {
-            this.showMessage('OMDb API підтримує лише англійські назви. Спробуйте ввести назву латиницею.', 'text-amber-600');
+            this.showMessage('OMDb API підтримує лише англійські назви. Спробуйте ввести назву латиницею.', 'text-red-800');
             this.updateSearchStatus('Використовуйте латиницю');
             return;
         }
 
         // Якщо запит занадто короткий, чекаємо більше символів
         if (query.length < 3) {
-            this.showMessage('Введіть принаймні 3 символи для пошуку...', 'text-amber-600');
+            this.showMessage('Введіть принаймні 3 символи для пошуку...', 'text-red-600');
             this.updateSearchStatus('Потрібно більше символів...');
             return;
         }
@@ -81,25 +120,38 @@ class MovieSearchApp {
 
         // Встановлюємо затримку для оптимізації запитів
         this.searchTimeout = setTimeout(() => {
-            this.searchMovies(query);
+            this.searchMovies(query, false);
         }, 300);
     }
 
-    async searchMovies(query) {
+    async searchMovies(query, isLoadMore = false) {
         // Перевіряємо, чи змінився запит
-        this.currentQuery = query;
+        if (!isLoadMore) {
+            this.currentQuery = query;
+            this.currentPage = 1;
+        }
         
-        // Показуємо індикатор завантаження
-        this.showLoading();
+        // Показуємо індикатор завантаження тільки для нового пошуку
+        if (!isLoadMore) {
+            this.showLoading();
+        }
 
         try {
             const currentType = this.searchTypes[this.currentTypeIndex];
             let apiUrl = `${this.baseUrl}?apikey=${this.apiKey}&s=${encodeURIComponent(query)}`;
             
+            // Додаємо рік якщо він вибраний
+            if (this.yearFilter.value) {
+                apiUrl += `&y=${this.yearFilter.value}`;
+            }
+            
             // Додаємо тип пошуку якщо не "all"
             if (currentType !== 'all') {
                 apiUrl += `&type=${currentType}`;
             }
+            
+            // Додаємо номер сторінки
+            apiUrl += `&page=${this.currentPage}`;
             
             // Спочатку пробуємо базовий пошук
             let response = await fetch(apiUrl);
@@ -115,79 +167,35 @@ class MovieSearchApp {
                 return;
             }
 
-            // Якщо "Too many results", пробуємо різні стратегії
-            if (data.Response === 'False' && data.Error === 'Too many results.') {
-                // Стратегія 1: Для коротких запитів (менше 4 символів) спробуємо різні варіанти
-                if (query.length < 4) {
-                    const variations = this.generateSearchVariations(query);
-                    let found = false;
-                    
-                    for (const variation of variations) {
-                        if (query !== this.currentQuery) return; // Перевіряємо, чи не змінився запит
-                        
-                        const variationUrl = `${this.baseUrl}?apikey=${this.apiKey}&s=${encodeURIComponent(variation)}`;
-                        const variationResponse = await fetch(variationUrl);
-                        const variationData = await variationResponse.json();
-                        
-                        if (variationData.Response === 'True') {
-                            data = variationData;
-                            found = true;
-                            break;
-                        }
-                    }
-                    
-                    if (!found) {
-                        // Стратегія 2: Спробуємо з конкретними роками для популярних фільмів
-                        const popularYears = this.getPopularYearsForQuery(query);
-                        for (const year of popularYears) {
-                            if (query !== this.currentQuery) return;
-                            
-                            const yearUrl = `${apiUrl}&y=${year}`;
-                            const yearResponse = await fetch(yearUrl);
-                            const yearData = await yearResponse.json();
-                            
-                            if (yearData.Response === 'True') {
-                                data = yearData;
-                                found = true;
-                                break;
-                            }
-                        }
-                    }
-                } else {
-                    // Для довших запитів використовуємо оригінальну логіку
-                    const currentYear = new Date().getFullYear();
-                    let found = false;
-                    
-                    for (let yearOffset = 0; yearOffset <= 5 && !found; yearOffset++) {
-                        const year = currentYear - yearOffset;
-                        let yearUrl = `${apiUrl}&y=${year}`;
-                        
-                        response = await fetch(yearUrl);
-                        data = await response.json();
-                        
-                        if (data.Response === 'True') {
-                            found = true;
-                            break;
-                        }
-                    }
-                    
-                    // Стратегія 3: Якщо з роками не знайшли, спробуємо лише перші результати
-                    if (!found) {
-                        response = await fetch(`${apiUrl}&page=1`);
-                        data = await response.json();
-                    }
-                }
-            }
-
             // Обробляємо результати
             if (data.Response === 'True') {
-                this.displayResults(data.Search);
-                this.updateSearchStatus(`Знайдено ${data.Search.length} результатів`);
-            } else if (data.Error === 'Too many results.') {
-                this.showTooManyResults(query);
+                // Фільтруємо результати, щоб прибрати епізоди та ігри
+                const filteredResults = data.Search.filter(movie => 
+                    movie.Type !== 'episode' && movie.Type !== 'game'
+                );
+                
+                // Зберігаємо загальну кількість результатів
+                this.totalResults = parseInt(data.totalResults) || 0;
+                this.hasMoreResults = this.currentPage * 10 < this.totalResults;
+                
+                if (this.currentPage === 1) {
+                    // Перша сторінка - показуємо результати
+                    this.displayResults(filteredResults);
+                } else {
+                    // Додаткова сторінка - додаємо до існуючих
+                    this.appendResults(filteredResults);
+                }
+                
+                this.updateSearchStatus(`Знайдено ${filteredResults.length} результатів${this.hasMoreResults ? ` (сторінка ${this.currentPage})` : ''}`);
             } else {
-                this.showMessage(data.Error || 'Фільми не знайдено', 'text-gray-600');
-                this.updateSearchStatus('Нічого не знайдено');
+                // Спеціальна обробка для "Too many results"
+                if (data.Error === 'Too many results.') {
+                    this.showMessage('Занадто багато результатів. Спробуйте уточнити пошук.', 'text-red-800');
+                    this.updateSearchStatus('Уточніть пошук');
+                } else {
+                    this.showMessage(data.Error || 'Фільми не знайдено', 'text-gray-600');
+                    this.updateSearchStatus('Нічого не знайдено');
+                }
             }
         } catch (error) {
             console.error('Помилка пошуку:', error);
@@ -196,84 +204,9 @@ class MovieSearchApp {
         }
     }
 
-    generateSearchVariations(query) {
-        const variations = [];
-        
-        // Для "It" генеруємо варіанти
-        if (query.toLowerCase() === 'it') {
-            variations.push('It 2017', 'It 1990', 'Stephen King It', 'It movie', 'It film');
-        }
-        
-        // Для інших коротких запитів
-        if (query.length === 2) {
-            variations.push(`${query} movie`, `${query} film`, `${query} 2023`, `${query} 2022`);
-        }
-        
-        if (query.length === 3) {
-            variations.push(`${query} movie`, `${query} film`, `${query} 2023`, `${query} 2022`, `${query} 2021`);
-        }
-        
-        return variations;
-    }
 
-    getPopularYearsForQuery(query) {
-        const queryLower = query.toLowerCase();
-        
-        // Спеціальні роки для популярних фільмів
-        if (queryLower === 'it') {
-            return [2017, 1990]; // Обидві версії "It"
-        }
-        
-        // Загальні популярні роки
-        return [2023, 2022, 2021, 2020, 2019, 2018, 2017, 2016, 2015];
-    }
 
-    showTooManyResults(query) {
-        const suggestions = this.getSuggestionsForQuery(query);
-        
-        this.resultsContainer.innerHTML = `
-            <div class="col-span-full text-center py-16">
-                <div class="bg-amber-50 border border-amber-200 rounded-3xl p-8 max-w-lg mx-auto">
-                    <svg class="w-16 h-16 text-amber-400 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z"/>
-                    </svg>
-                    <h3 class="text-lg font-semibold text-amber-800 mb-3">Занадто багато результатів</h3>
-                    <p class="text-amber-700 mb-4">Запит "${query}" повертає занадто багато результатів. Спробуйте:</p>
-                    <div class="text-left text-sm text-amber-600 space-y-2">
-                        ${suggestions.map(suggestion => `<p>• ${suggestion}</p>`).join('')}
-                    </div>
-                </div>
-            </div>
-        `;
-        this.updateSearchStatus('Уточніть пошук');
-    }
 
-    getSuggestionsForQuery(query) {
-        const queryLower = query.toLowerCase();
-        const suggestions = [];
-        
-        // Спеціальні підказки для популярних коротких назв
-        if (queryLower === 'it') {
-            suggestions.push('Спробуйте "It 2017" (нова версія)');
-            suggestions.push('Спробуйте "It 1990" (класична версія)');
-            suggestions.push('Спробуйте "Stephen King It"');
-        } else if (queryLower === 'batman') {
-            suggestions.push('Спробуйте "The Dark Knight"');
-            suggestions.push('Спробуйте "Batman 2022"');
-            suggestions.push('Спробуйте "Batman Begins"');
-        } else if (queryLower === 'avatar') {
-            suggestions.push('Спробуйте "Avatar 2009"');
-            suggestions.push('Спробуйте "Avatar 2022"');
-        } else {
-            // Загальні підказки
-            suggestions.push('Додайте рік випуску (наприклад: "Avatar 2009")');
-            suggestions.push('Будьте більш конкретними ("The Dark Knight" замість "Batman")');
-            suggestions.push('Використайте кнопку типу пошуку вгорі');
-            suggestions.push('Додайте ім\'я актора або режисера');
-        }
-        
-        return suggestions;
-    }
 
     displayResults(movies) {
         // Очищуємо контейнер
@@ -284,6 +217,62 @@ class MovieSearchApp {
             const movieCard = this.createMovieCard(movie, index);
             this.resultsContainer.appendChild(movieCard);
         });
+        
+        // Додаємо кнопку "Завантажити ще" якщо є більше результатів
+        if (this.hasMoreResults) {
+            this.addLoadMoreButton();
+        }
+    }
+
+    appendResults(movies) {
+        // Видаляємо стару кнопку "Завантажити ще" якщо вона є
+        const oldLoadMoreBtn = document.getElementById('loadMoreBtn');
+        if (oldLoadMoreBtn) {
+            oldLoadMoreBtn.remove();
+        }
+        
+        // Додаємо нові картки до існуючих
+        const startIndex = this.resultsContainer.children.length;
+        movies.forEach((movie, index) => {
+            const movieCard = this.createMovieCard(movie, startIndex + index);
+            this.resultsContainer.appendChild(movieCard);
+        });
+        
+        // Додаємо кнопку "Завантажити ще" в кінець
+        if (this.hasMoreResults) {
+            this.addLoadMoreButton();
+        }
+    }
+
+    addLoadMoreButton() {
+        const loadMoreBtn = document.createElement('button');
+        loadMoreBtn.id = 'loadMoreBtn';
+        loadMoreBtn.className = `
+            col-span-full mt-8 px-8 py-4 bg-gradient-to-r from-purple-500 to-pink-500 
+            text-white font-semibold rounded-2xl hover:from-purple-600 hover:to-pink-600 
+            transition-all duration-300 shadow-lg hover:shadow-xl transform hover:scale-105
+        `;
+        loadMoreBtn.textContent = `Завантажити ще (${this.totalResults - this.currentPage * 10} залишилося)`;
+        loadMoreBtn.onclick = () => this.loadMoreResults();
+        
+        this.resultsContainer.appendChild(loadMoreBtn);
+    }
+
+    updateLoadMoreButton() {
+        const loadMoreBtn = document.getElementById('loadMoreBtn');
+        if (loadMoreBtn) {
+            const remaining = this.totalResults - this.currentPage * 10;
+            if (remaining > 0) {
+                loadMoreBtn.textContent = `Завантажити ще (${remaining} залишилося)`;
+            } else {
+                loadMoreBtn.remove();
+            }
+        }
+    }
+
+    async loadMoreResults() {
+        this.currentPage++;
+        await this.searchMovies(this.currentQuery, true);
     }
 
     createMovieCard(movie, index) {
