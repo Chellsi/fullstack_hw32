@@ -186,7 +186,7 @@ class MovieSearchApp {
                     this.appendResults(filteredResults);
                 }
                 
-                this.updateSearchStatus(`Знайдено ${filteredResults.length} результатів${this.hasMoreResults ? ` (сторінка ${this.currentPage})` : ''}`);
+                this.updateSearchStatus(`Знайдено ${this.totalResults} результатів${this.hasMoreResults ? ` (сторінка ${this.currentPage})` : ''}`);
             } else {
                 // Спеціальна обробка для "Too many results"
                 if (data.Error === 'Too many results.') {
@@ -669,7 +669,7 @@ class MovieSearchApp {
     updateSearchStatus(status) {
         this.searchStatus.textContent = status;
         if (status) {
-            this.searchStatus.className = 'text-sm text-purple-600 font-medium';
+            this.searchStatus.className = 'text-sm text-purple-950 font-medium mb-6';
         }
     }
 }
